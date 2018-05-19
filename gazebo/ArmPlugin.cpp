@@ -40,8 +40,8 @@
 #define INPUT_HEIGHT  64
 // #define OPTIMIZER "RMSprop"
 #define OPTIMIZER "Adam"
-#define LEARNING_RATE 0.1f
-#define REPLAY_MEMORY 1000
+#define LEARNING_RATE 0.01f
+#define REPLAY_MEMORY 20000
 // #define BATCH_SIZE 32
 #define BATCH_SIZE 512
 #define USE_LSTM true
@@ -53,8 +53,8 @@
 /
 */
 
-#define REWARD_WIN  0.125f
-#define REWARD_LOSS -0.125f
+#define REWARD_WIN  0.1f
+#define REWARD_LOSS -0.1f
 
 // Define Object Names
 #define WORLD_NAME "arm_world"
@@ -281,15 +281,15 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 
 		if (collisionCheck)
 		{
-			// // if the gripper is the collision point its a reward_win
-			// if (strcmp(contacts->contact(i).collision2().c_str(), COLLISION_POINT) == 0)
-			// 	rewardHistory = REWARD_WIN * 20;
-			// // if another part of the arm is
-			// else
-			// 	rewardHistory = REWARD_WIN * 5;
+			// if the gripper is the collision point its a reward_win
+			if (strcmp(contacts->contact(i).collision2().c_str(), COLLISION_POINT) == 0)
+				rewardHistory = REWARD_WIN * 20;
+			// if another part of the arm is
+			else
+				rewardHistory = REWARD_LOSS * 5;
 
 
-			rewardHistory = REWARD_WIN * 10;
+			// rewardHistory = REWARD_WIN * 10;
 			newReward  = true;
 			endEpisode = true;
 
@@ -632,7 +632,10 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 
 		if(!checkGroundContact)
 		{
-			float distGoal = BoxDistance(gripper->GetBoundingBox(), prop->model->GetBoundingBox()); // compute the reward from distance to the goal
+			const math::Box& gripBBox = gripper->GetBoundingBox();
+			const math::Box& propBBox = prop->model->GetBoundingBox();
+
+			float distGoal = BoxDistance(gripBBox, propBBox); // compute the reward from distance to the goal
 
 			if(DEBUG){printf("distance('%s', '%s') = %f\n", gripper->GetName().c_str(), prop->model->GetName().c_str(), distGoal);}
 
@@ -640,16 +643,29 @@ void ArmPlugin::OnUpdate(const common::UpdateInfo& updateInfo)
 			{
 				const float distDelta  = lastGoalDistance - distGoal;
 
-				const float alpha = 0.6f;
+				const float alpha = 0.9f;
 
 				// compute the smoothed moving average of the delta of the distance to the goal
 				avgGoalDelta  =(avgGoalDelta * alpha) + (distDelta * (1.0f - alpha));
 				if(DEBUG){printf("distDelta: %f avgGoalDelta %f\n", distDelta, avgGoalDelta);}
 
+
+				// if we are moving towards the goal
 				if (avgGoalDelta > 0)
+					// if (avgGoalDelta < 0.25f)
+					// 	rewardHistory = REWARD_WIN * (1.25f-avgGoalDelta);
+					// else
+					// 	// get close quick
+					// 	rewardHistory = REWARD_WIN;
 					rewardHistory = REWARD_WIN;
+
+				// the further away we are moving from the goal
 				else
 					rewardHistory = REWARD_LOSS * distGoal;
+
+				// we want to be moving
+				if (abs(avgGoalDelta) < .001f)
+					rewardHistory += REWARD_LOSS;
 
 				newReward     = true;
 			}
