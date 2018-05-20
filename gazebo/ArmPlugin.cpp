@@ -38,15 +38,12 @@
 
 #define INPUT_WIDTH   64
 #define INPUT_HEIGHT  64
-// #define OPTIMIZER "RMSprop"
 #define OPTIMIZER "Adam"
 #define LEARNING_RATE 0.01f
 #define REPLAY_MEMORY 20000
-// #define BATCH_SIZE 32
 #define BATCH_SIZE 512
 #define USE_LSTM true
 #define LSTM_SIZE 256
-
 
 /*
 / TODO - Define Reward Parameters
@@ -141,7 +138,7 @@ void ArmPlugin::Load(physics::ModelPtr _parent, sdf::ElementPtr /*_sdf*/)
 	/ TODO - Subscribe to camera topic
 	/
 	*/
-    cameraSub = cameraNode->Subscribe("/gazebo/arm_world/camera/link/camera/image", &gazebo::ArmPlugin::onCameraMsg, this);
+    	cameraSub = cameraNode->Subscribe("/gazebo/arm_world/camera/link/camera/image", &gazebo::ArmPlugin::onCameraMsg, this);
 
 	// Create our node for collision detection
 	collisionNode->Init();
@@ -253,8 +250,6 @@ void ArmPlugin::onCameraMsg(ConstImageStampedPtr &_msg)
 // onCollisionMsg
 void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 {
-	//if(DEBUG){printf("collision callback (%u contacts)\n", contacts->contact_size());}
-
 	if( testAnimation )
 		return;
 
@@ -265,8 +260,6 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 
 		if(DEBUG){std::cout << "Collision between[" << contacts->contact(i).collision1()
 			     << "] and [" << contacts->contact(i).collision2() << "]\n";}
-
-
 
 		/*
 		/ TODO - Check if there is collision between the arm and object, then issue learning reward
@@ -279,12 +272,12 @@ void ArmPlugin::onCollisionMsg(ConstContactsPtr &contacts)
 		}
 
 
-		if (collisionCheck)
+		if (collisionCheck) //if we have contact with object on the arm...
 		{
-			// if the gripper is the collision point its a reward_win
+			// if the gripper is the collision point = reward_win
 			if (strcmp(contacts->contact(i).collision2().c_str(), COLLISION_POINT) == 0)
 				rewardHistory = REWARD_WIN * 20;
-			// if another part of the arm is
+			// if any other part of the arm is in a collision point = reward_loss
 			else
 				rewardHistory = REWARD_LOSS * 5;
 
@@ -374,8 +367,8 @@ bool ArmPlugin::updateAgent()
 	/ TODO - Increase or decrease the joint position based on whether the action is even or odd
 	/
 	*/
-	// float joint = 0.0; // TODO - Set joint position based on whether action is even or odd.
 	float joint = ref[action/2];
+	//action is even or odd
 	if (action % 2 == 0)
 	{
 		joint+=actionJointDelta;
